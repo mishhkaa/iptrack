@@ -20,7 +20,13 @@ $ip =
 $file = __DIR__ . "/clicks.csv";
 $isNew = !file_exists($file);
 
-$fp = fopen($file, "a");
+$fp = @fopen($file, "a");
+if ($fp === false) {
+  http_response_code(503);
+  header("Content-Type: text/plain; charset=UTF-8");
+  echo "Cannot write to " . basename(__DIR__) . "/clicks.csv. Check folder permissions (chown/chmod).";
+  exit;
+}
 
 if ($isNew) {
   fputcsv($fp, [
