@@ -1,0 +1,4 @@
+/vendor/
+*.csv
+*.txt
+.DS_Store
