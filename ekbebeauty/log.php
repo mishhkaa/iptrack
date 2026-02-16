@@ -12,23 +12,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $data = json_decode(file_get_contents("php://input"), true);
 if (!$data) exit;
 
-$project = isset($data['project']) ? trim($data['project']) : '';
-if ($project === '' || !preg_match('/^[a-z0-9\-]+$/i', $project)) {
-  http_response_code(400);
-  exit('Invalid project');
-}
-
-$projectDir = __DIR__ . '/' . $project;
-if (!is_dir($projectDir)) {
-  mkdir($projectDir, 0755, true);
-}
-
 $ip =
   $_SERVER['HTTP_CF_CONNECTING_IP'] ??
   $_SERVER['HTTP_X_FORWARDED_FOR'] ??
   $_SERVER['REMOTE_ADDR'];
 
-$file = $projectDir . "/clicks.csv";
+$file = __DIR__ . "/clicks.csv";
 $isNew = !file_exists($file);
 
 $fp = fopen($file, "a");

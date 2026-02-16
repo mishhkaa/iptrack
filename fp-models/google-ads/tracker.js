@@ -1,18 +1,15 @@
 (function () {
   var script = document.currentScript;
-  var src = (script && script.src) ? script.src : '';
-  var m = src.match(/\/([^\/]+)\/google-ads\/tracker\.js/);
-  var project = (m && m[1]) ? m[1] : 'default';
+  var logUrl = (script && script.src) ? script.src.replace(/\/google-ads\/tracker\.js$/i, "/log.php") : "../log.php";
 
   document.addEventListener("click", function (e) {
     var el = e.target.closest("button, a");
     if (!el) return;
 
-    fetch("/log.php", {
+    fetch(logUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        project: project,
         tag: el.tagName,
         text: (el.innerText || "").trim().slice(0, 120),
         href: el.getAttribute("href") || "",

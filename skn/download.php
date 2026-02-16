@@ -1,18 +1,11 @@
 <?php
-require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/../vendor/autoload.php';
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
-$project = isset($_GET['project']) ? trim($_GET['project']) : '';
-if ($project === '' || !preg_match('/^[a-z0-9\-]+$/i', $project)) {
-  http_response_code(400);
-  exit('Invalid project');
-}
-
-$projectDir = __DIR__ . '/' . $project;
-$csvFile = $projectDir . '/clicks.csv';
+$csvFile = __DIR__ . '/clicks.csv';
 if (!file_exists($csvFile)) {
   http_response_code(404);
   exit('No data');
@@ -35,14 +28,13 @@ foreach ($rows as $row) {
   $rowNum++;
 }
 
-// трохи краси
 $sheet->getStyle('A1:H1')->getFont()->setBold(true);
 foreach (range('A','H') as $col) {
   $sheet->getColumnDimension($col)->setAutoSize(true);
 }
 
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-header('Content-Disposition: attachment; filename="clicks_' . basename($project) . '.xlsx"');
+header('Content-Disposition: attachment; filename="clicks_skn.xlsx"');
 header('Cache-Control: max-age=0');
 
 $writer = new Xlsx($spreadsheet);
