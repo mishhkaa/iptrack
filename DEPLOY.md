@@ -1,20 +1,46 @@
 # Налаштування на сервері (checkipweb.top)
 
+## Оновлення на проді (deploy з GitHub)
+
+Якщо код уже клонований з `https://github.com/mishhkaa/iptrack.git`:
+
+```bash
+cd /home/administrator/web/checkipweb.top/public_html
+# або той шлях, де лежить репозиторій
+
+git fetch origin
+git pull origin main
+composer install --no-dev
+```
+
+Якщо репозиторій ще не на сервері — клонуй і встанови залежності:
+
+```bash
+cd /home/administrator/web/checkipweb.top
+git clone https://github.com/mishhkaa/iptrack.git public_html
+cd public_html
+composer install --no-dev
+```
+
+Після `git pull` переконайся, що права на запис у папках проектів залишились (див. розділ 2 нижче).
+
+---
+
 Якщо трекер дає **500** або **"No data"** при скачуванні — виконай кроки нижче на сервері.
 
 ## 1. Перевірка, що PHP бачить скрипти (помилка "Primary script unknown")
 
-Переконайся, що домен **checkipweb.top** вказує на папку, де лежать проекти (`skn`, `fp-models`, `ekbebeauty`).
+Переконайся, що домен **checkipweb.top** вказує на папку, де лежать проекти (`cdcamp`, `fp-models`, `maisonellyse`).
 
 ```bash
 # Де лежить сайт
-ls -la /home/administrator/web/checkipweb.top/public_html/skn/log.php
+ls -la /home/administrator/web/checkipweb.top/public_html/cdcamp/log.php
 ```
 
 У конфігурації Apache (vhost) для checkipweb.top має бути:
 
 - **DocumentRoot** = `/home/administrator/web/checkipweb.top/public_html`  
-  (або той шлях, де є папки `skn/`, `fp-models/`, `ekbebeauty/`).
+  (або той шлях, де є папки `cdcamp/`, `fp-models/`, `maisonellyse/`).
 
 Якщо використовуєш панель (ISPmanager, Vestacp тощо) — у налаштуваннях сайту вкажи цей же каталог як корінь домену.
 
@@ -40,28 +66,28 @@ ps aux | grep apache2
 ```bash
 cd /home/administrator/web/checkipweb.top/public_html
 
-sudo chown -R www-data:www-data skn fp-models ekbebeauty
+sudo chown -R www-data:www-data cdcamp fp-models maisonellyse
 # або, якщо сайт крутиться під administrator:
-# sudo chown -R administrator:www-data skn fp-models ekbebeauty
+# sudo chown -R administrator:www-data cdcamp fp-models maisonellyse
 ```
 
 Якщо хочеш лишити власника root — дай групі право запису:
 
 ```bash
-sudo chgrp -R www-data skn fp-models ekbebeauty
-sudo chmod -R g+w skn fp-models ekbebeauty
+sudo chgrp -R www-data cdcamp fp-models maisonellyse
+sudo chmod -R g+w cdcamp fp-models maisonellyse
 ```
 
 ## 3. Перевірка після налаштування
 
-1. Відкрий у браузері: `https://checkipweb.top/skn/log.php`  
+1. Відкрий у браузері: `https://checkipweb.top/cdcamp/log.php`  
    Очікується порожня відповідь або "ok" (GET без POST — нормально).
-2. Зроби клік на сторінці з підключеним трекером skn.
+2. Зроби клік на сторінці з підключеним трекером (або просто відкрий сторінку — записаться візит).
 3. Перевір, що з’явився файл:
    ```bash
-   ls -la /home/administrator/web/checkipweb.top/public_html/skn/clicks.csv
+   ls -la /home/administrator/web/checkipweb.top/public_html/cdcamp/clicks.csv
    ```
-4. Відкрий: `https://checkipweb.top/skn/download.php` — має завантажитися Excel.
+4. Відкрий: `https://checkipweb.top/cdcamp/download.php` — має завантажитися Excel з двома аркушами (Clicks та Visits).
 
 ## 4. Логи помилок
 

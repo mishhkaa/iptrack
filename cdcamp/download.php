@@ -32,7 +32,7 @@ foreach ($raw as $row) {
 }
 
 $spreadsheet = new Spreadsheet();
-$projectName = basename(__DIR__);
+$projectName = 'cdcamp';
 
 function writeSheet($sheet, $title, $header, $rows) {
   $sheet->setTitle($title);
@@ -57,8 +57,8 @@ function writeSheet($sheet, $title, $header, $rows) {
 }
 
 writeSheet($spreadsheet->getActiveSheet(), 'Clicks', $header, $clicks);
-$spreadsheet->createSheet();
-writeSheet($spreadsheet->getSheet(1), 'Visits', $header, $visits);
+$sheetVisits = $spreadsheet->createSheet(1);
+writeSheet($sheetVisits, 'Visits', $header, $visits);
 
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 header('Content-Disposition: attachment; filename="clicks_' . $projectName . '.xlsx"');
