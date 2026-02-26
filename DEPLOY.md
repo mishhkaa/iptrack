@@ -24,6 +24,35 @@ composer install --no-dev
 
 Після `git pull` переконайся, що права на запис у папках проектів залишились (див. розділ 2 нижче).
 
+### Якщо pull показує: "untracked working tree files would be overwritten by merge"
+
+На сервері папки `cdcamp/` або `maisonellyse/` були створені вручну (не з git), тому git не перезаписує їх. Зроби так (**збережи дані з clicks.csv перед видаленням**):
+
+```bash
+cd /home/administrator/web/checkipweb.top/public_html
+
+# 1) Зберегти логи (clicks.csv), якщо вони є
+cp cdcamp/clicks.csv /tmp/cdcamp_clicks.csv.bak 2>/dev/null || true
+cp maisonellyse/clicks.csv /tmp/maisonellyse_clicks.csv.bak 2>/dev/null || true
+
+# 2) Видалити конфліктні папки, щоб git міг підтягнути їх з репо
+rm -rf cdcamp maisonellyse
+
+# 3) Підтягнути код
+git pull origin main
+
+# 4) Відновити збережені логи (щоб не втратити кліки/візити)
+cp /tmp/cdcamp_clicks.csv.bak cdcamp/clicks.csv 2>/dev/null || true
+cp /tmp/maisonellyse_clicks.csv.bak maisonellyse/clicks.csv 2>/dev/null || true
+
+# 5) Залежності та права
+composer install --no-dev
+sudo chown -R www-data:www-data cdcamp fp-models maisonellyse
+# або: sudo chmod -R g+w cdcamp fp-models maisonellyse
+```
+
+Після цього оновлення мають застосовуватись без помилки.
+
 ---
 
 Якщо трекер дає **500** або **"No data"** при скачуванні — виконай кроки нижче на сервері.
