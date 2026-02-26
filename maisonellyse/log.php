@@ -37,9 +37,14 @@ if ($isNew) {
     "href",
     "id",
     "classes",
-    "page"
+    "page",
+    "type",
+    "referrer"
   ]);
 }
+
+$type = $data['type'] ?? 'click';
+$referrer = $data['referrer'] ?? '';
 
 fputcsv($fp, [
   date("d.m.Y H:i:s"),
@@ -49,7 +54,9 @@ fputcsv($fp, [
   $data['href'] ?? '',
   $data['id'] ?? '',
   $data['classes'] ?? '',
-  $data['page'] ?? ''
+  $data['page'] ?? '',
+  $type,
+  $referrer
 ]);
 
 fclose($fp);
