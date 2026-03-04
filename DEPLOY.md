@@ -53,6 +53,24 @@ sudo chown -R www-data:www-data cdcamp fp-models maisonellyse
 
 Після цього оновлення мають застосовуватись без помилки.
 
+### Адмін-дашборд (проєкти під паролем)
+
+- **URL:** `https://checkipweb.top/admin/`
+- При першому відкритті — форма **«Встановити пароль»** (мінімум 6 символів). Пароль зберігається в SQLite (`admin/data/iptrack.db`), MySQL не потрібен.
+- Далі вхід за цим паролем. У дашборді:
+  - **Додати проєкт** — назва + slug (латиниця, цифри, дефіс); створюється папка з `log.php`, `download.php`, `google-ads/tracker.js`.
+  - Для кожного проєкту показується **скрипт для вставки** на сайт (кнопка «Копіювати»).
+  - **Імпортувати з диска** — додає в список існуючі папки з `log.php` (наприклад cdcamp, fp-models, maisonellyse), якщо їх ще немає в базі.
+  - Кнопки «↓ Excel» та «Видалити» для кожного проєкту.
+
+Переконайся, що PHP може писати в `admin/data/` (для SQLite):
+
+```bash
+sudo chown -R www-data:www-data /home/administrator/web/checkipweb.top/public_html/admin/data
+# або під користувачем панелі:
+# sudo chown -R administrator:www-data .../admin/data
+```
+
 ---
 
 Якщо трекер дає **500** або **"No data"** при скачуванні — виконай кроки нижче на сервері.

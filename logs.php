@@ -1,8 +1,15 @@
 <?php
 /**
  * Перегляд логів (clicks + visits) з усіх проєктів одразу.
- * URL: /logs.php або /logs.php?project=cdcamp або /logs.php?type=visit
+ * Доступно лише після входу в адмінку.
  */
+session_start();
+if (empty($_SESSION['admin_logged'])) {
+  $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '');
+  header('Location: ' . $baseUrl . '/admin/');
+  exit;
+}
+
 $baseDir = __DIR__;
 $limit = isset($_GET['limit']) ? min(2000, max(50, (int) $_GET['limit'])) : 500;
 $filterProject = isset($_GET['project']) ? preg_replace('/[^a-z0-9\-_]/', '', $_GET['project']) : null;
@@ -13,7 +20,7 @@ if ($filterType && !in_array($filterType, ['click', 'visit'], true)) {
 
 $projects = [];
 foreach (scandir($baseDir) ?: [] as $name) {
-  if ($name[0] === '.' || $name === 'vendor' || !is_dir($baseDir . '/' . $name)) {
+  if ($name[0] === '.' || $name === 'vendor' || $name === 'admin' || !is_dir($baseDir . '/' . $name)) {
     continue;
   }
   $csvPath = $baseDir . '/' . $name . '/clicks.csv';
@@ -90,6 +97,8 @@ header('Content-Type: text/html; charset=UTF-8');
   <h1>Логи (clicks + visits) — всі проєкти</h1>
   <div class="toolbar">
     <a href="?">Всі</a>
+    <span>|</span>
+    <a href="<?php echo (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '') . '/admin/'; ?>">← Дашборд</a>
     <span>|</span>
     <a href="?type=click">Тільки кліки</a>
     <a href="?type=visit">Тільки візити</a>
