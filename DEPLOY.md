@@ -65,6 +65,32 @@ sudo chown -R www-data:www-data cdcamp fp-models maisonellyse
   - **Імпортувати з диска** — додає в список існуючі папки з `log.php` (наприклад cdcamp, fp-models, maisonellyse), якщо їх ще немає в базі.
   - Кнопки «↓ Excel» та «Видалити» для кожного проєкту.
 
+**Помилка «DB error: could not find driver»** — на сервері не увімкнено розширення PHP **PDO SQLite**. Потрібно увімкнути `pdo_sqlite` (і зазвичай `sqlite`):
+
+- **Визнач версію PHP і сервіс (на сервері по SSH):**
+  ```bash
+  php -v
+  php -m | grep -i sqlite
+  systemctl list-units --type=service | grep -E 'php|apache|nginx'
+  ls /lib/systemd/system/ | grep -E 'php|apache|nginx'
+  ```
+  Якщо `grep -i sqlite` нічого не виводить — модуль не завантажений. Якщо `php8.2-fpm` не знайдено — шукай інше ім’я, наприклад `php-fpm`, `php8.1-fpm`, `apache2`.
+- **Встановлення модуля (Ubuntu/Debian):** підстав свою версію PHP з `php -v`:
+  ```bash
+  sudo apt update
+  sudo apt install php-sqlite3
+  ```
+  Якщо потрібно під конкретну версію: `php8.1-sqlite3` або `php8.2-sqlite3`. Перевір: `apt search php sqlite3`.
+- **Перезапуск веб-сервера** (один з варіантів):
+  ```bash
+  sudo systemctl restart php-fpm
+  sudo systemctl restart php8.1-fpm
+  sudo systemctl restart apache2
+  sudo systemctl restart nginx
+  ```
+- **ISPmanager / панель хостингу:** знайди налаштування PHP (PHP Extensions / Модулі) і ввімкни **pdo_sqlite** (та при потребі **sqlite**). Збережи й перезапусти PHP-FPM або веб-сервер.
+- **php.ini:** переконайся, що немає рядків типу `;extension=pdo_sqlite` (закоментовано). Має бути `extension=pdo_sqlite` без крапки з комою на початку. Потім перезапусти PHP.
+
 Переконайся, що PHP може писати в `admin/data/` (для SQLite):
 
 ```bash

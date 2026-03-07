@@ -14,7 +14,14 @@ try {
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
   ]);
 } catch (PDOException $e) {
-  die('DB error: ' . htmlspecialchars($e->getMessage()));
+  $msg = $e->getMessage();
+  if (stripos($msg, 'could not find driver') !== false) {
+    $msg .= ' — увімкни розширення PHP pdo_sqlite (див. DEPLOY.md).';
+  }
+  if (stripos($msg, 'unable to open database file') !== false) {
+    $msg .= ' — перевір права на папку admin/data (chown/chmod).';
+  }
+  die('DB error: ' . htmlspecialchars($msg));
 }
 
 $pdo->exec("
