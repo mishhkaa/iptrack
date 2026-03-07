@@ -24,6 +24,8 @@ composer install --no-dev
 
 Після `git pull` переконайся, що права на запис у папках проектів залишились (див. розділ 2 нижче).
 
+**Таблички (Excel і CSV):** у репозиторії їх немає (у `.gitignore`: `*.csv`, `*.xlsx`). При `git pull` вони ніколи не змінюються — залишаються ті, що на сервері.
+
 ### Якщо pull показує: "untracked working tree files would be overwritten by merge"
 
 На сервері папки `cdcamp/` або `maisonellyse/` були створені вручну (не з git), тому git не перезаписує їх. Зроби так (**збережи дані з clicks.csv перед видаленням**):
@@ -70,6 +72,18 @@ sudo chown -R www-data:www-data /home/administrator/web/checkipweb.top/public_ht
 # або під користувачем панелі:
 # sudo chown -R administrator:www-data .../admin/data
 ```
+
+### Моніторинг сайтів (відстеження) + Telegram
+
+- У дашборді розділ **«Відстеження проектів»**: додай посилання (назва + URL). Скрипт перевіряє кожні 60 хв: чи сайт доступний, чи SSL дійсний. При збої — сповіщення в Telegram.
+- **Telegram:** у розділі вкажи Bot Token (від @BotFather) та Chat ID. При падінні сайту або помилці SSL бот надсилає повідомлення.
+- **Cron (кожні 60 хв):** додай у crontab (`crontab -e`):
+
+```bash
+0 * * * * cd /home/administrator/web/checkipweb.top/public_html/admin && php check_monitored.php
+```
+
+(замість шляху підстав свій `public_html/admin`). Перевірка працює і по кнопці «Перевірити зараз» в адмінці.
 
 ---
 

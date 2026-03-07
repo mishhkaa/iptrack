@@ -39,7 +39,7 @@ foreach ($raw as $row) {
 }
 
 $spreadsheet = new Spreadsheet();
-$projectName = 'fp-models';
+$projectName = 'test';
 
 function writeSheet($sheet, $title, $header, $rows) {
   $sheet->setTitle($title);

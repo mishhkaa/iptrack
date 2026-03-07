@@ -4,3 +4,4 @@
 *.txt
 .DS_Store
 /admin/data/*.db
+/admin/data/telegram.local.php

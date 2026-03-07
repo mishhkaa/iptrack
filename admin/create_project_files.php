@@ -85,6 +85,13 @@ LOG;
 <?php
 require __DIR__ . '/../vendor/autoload.php';
 
+session_start();
+if (empty($_SESSION['admin_logged'])) {
+  http_response_code(403);
+  header('Content-Type: text/plain; charset=UTF-8');
+  exit('Доступ заборонено. Скачування лише через Дашборд.');
+}
+
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -192,6 +199,19 @@ TRACK;
 
   if (file_put_contents($dir . '/log.php', $logPhp) === false) {
     $errors[] = 'Не вдалося записати log.php';
+  }
+  // Пустий clicks.csv з заголовком — щоб проєкт одразу з'являвся у фільтрі на сторінці логів
+  $csvHeader = ["date", "ip", "tag", "text", "href", "id", "classes", "page", "type", "referrer"];
+  $csvLine = '';
+  $fh = fopen('php://memory', 'r+');
+  if ($fh !== false) {
+    fputcsv($fh, $csvHeader);
+    rewind($fh);
+    $csvLine = stream_get_contents($fh);
+    fclose($fh);
+  }
+  if ($csvLine !== '' && file_put_contents($dir . '/clicks.csv', $csvLine) === false) {
+    $errors[] = 'Не вдалося створити clicks.csv';
   }
   if (file_put_contents($dir . '/download.php', str_replace('SLUG_PLACEHOLDER', $slug, $downloadPhp)) === false) {
     $errors[] = 'Не вдалося записати download.php';

@@ -1,6 +1,13 @@
 <?php
 require __DIR__ . '/../vendor/autoload.php';
 
+session_start();
+if (empty($_SESSION['admin_logged'])) {
+  http_response_code(403);
+  header('Content-Type: text/plain; charset=UTF-8');
+  exit('Доступ заборонено. Скачування лише через Дашборд.');
+}
+
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
