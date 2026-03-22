@@ -21,6 +21,49 @@ $dateFrom = isset($_GET['date_from']) ? trim((string) $_GET['date_from']) : null
 $dateTo   = isset($_GET['date_to'])   ? trim((string) $_GET['date_to'])   : null;
 $filterId   = isset($_GET['filter_id'])   ? trim((string) $_GET['filter_id'])   : null;
 $filterHref = isset($_GET['filter_href']) ? trim((string) $_GET['filter_href']) : null;
+$filterText    = isset($_GET['filter_text'])    ? trim((string) $_GET['filter_text'])    : null;
+$filterClasses = isset($_GET['filter_classes']) ? trim((string) $_GET['filter_classes']) : null;
+$filterPage    = isset($_GET['filter_page'])    ? trim((string) $_GET['filter_page'])    : null;
+
+function filterRowsBySubstring(array $rows, int $colIndex, ?string $needle): array {
+  if ($needle === null || $needle === '') {
+    return $rows;
+  }
+  $n = mb_strtolower($needle);
+  return array_filter($rows, function ($row) use ($n, $colIndex) {
+    return isset($row[$colIndex]) && mb_strpos(mb_strtolower((string) $row[$colIndex]), $n) !== false;
+  });
+}
+
+$navBase = [];
+if ($filterProject) {
+  $navBase['project'] = $filterProject;
+}
+if ($limit !== 500) {
+  $navBase['limit'] = $limit;
+}
+if ($dateFrom !== null && $dateFrom !== '') {
+  $navBase['date_from'] = $dateFrom;
+}
+if ($dateTo !== null && $dateTo !== '') {
+  $navBase['date_to'] = $dateTo;
+}
+if ($filterId !== null && $filterId !== '') {
+  $navBase['filter_id'] = $filterId;
+}
+if ($filterHref !== null && $filterHref !== '') {
+  $navBase['filter_href'] = $filterHref;
+}
+if ($filterText !== null && $filterText !== '') {
+  $navBase['filter_text'] = $filterText;
+}
+if ($filterClasses !== null && $filterClasses !== '') {
+  $navBase['filter_classes'] = $filterClasses;
+}
+if ($filterPage !== null && $filterPage !== '') {
+  $navBase['filter_page'] = $filterPage;
+}
+$navQs = http_build_query($navBase);
 
 function parseRowDate($dateStr) {
   if ($dateStr === '') return null;
@@ -82,7 +125,7 @@ foreach ($projects as $projectName => $csvPath) {
   }
 }
 
-// Фільтр по даті та id/href
+// Фільтр по даті та полях рядка (text, href, id, classes, page)
 if ($dateFrom !== null && $dateFrom !== '') {
   $tsFrom = strtotime($dateFrom);
   if ($tsFrom) {
@@ -101,18 +144,11 @@ if ($dateTo !== null && $dateTo !== '') {
     });
   }
 }
-if ($filterId !== null && $filterId !== '') {
-  $needle = mb_strtolower($filterId);
-  $allRows = array_filter($allRows, function ($row) use ($needle) {
-    return $needle === '' || (isset($row[6]) && mb_strpos(mb_strtolower((string) $row[6]), $needle) !== false);
-  });
-}
-if ($filterHref !== null && $filterHref !== '') {
-  $needle = mb_strtolower($filterHref);
-  $allRows = array_filter($allRows, function ($row) use ($needle) {
-    return $needle === '' || (isset($row[5]) && mb_strpos(mb_strtolower((string) $row[5]), $needle) !== false);
-  });
-}
+$allRows = filterRowsBySubstring($allRows, 4, $filterText);
+$allRows = filterRowsBySubstring($allRows, 5, $filterHref);
+$allRows = filterRowsBySubstring($allRows, 6, $filterId);
+$allRows = filterRowsBySubstring($allRows, 7, $filterClasses);
+$allRows = filterRowsBySubstring($allRows, 8, $filterPage);
 $allRows = array_values($allRows);
 
 // newest first (by date column index 1 in $allRows)
@@ -175,10 +211,10 @@ header('Content-Type: text/html; charset=UTF-8');
     <div class="top-bar">
       <h1>Логи — кліки та візити</h1>
       <div class="nav">
-        <a href="?<?php echo $filterProject ? 'project=' . rawurlencode($filterProject) . '&' : ''; ?><?php echo $limit !== 500 ? 'limit=' . $limit . '&' : ''; ?>" class="<?php echo $filterType === null ? 'active' : ''; ?>">Всі</a>
+        <a href="?<?php echo htmlspecialchars($navQs); ?>" class="<?php echo $filterType === null ? 'active' : ''; ?>">Всі</a>
         <span class="sep">|</span>
-        <a href="?type=click<?php echo $filterProject ? '&project=' . rawurlencode($filterProject) : ''; ?><?php echo $limit !== 500 ? '&limit=' . $limit : ''; ?>" class="<?php echo $filterType === 'click' ? 'active' : ''; ?>">Кліки</a>
-        <a href="?type=visit<?php echo $filterProject ? '&project=' . rawurlencode($filterProject) : ''; ?><?php echo $limit !== 500 ? '&limit=' . $limit : ''; ?>" class="<?php echo $filterType === 'visit' ? 'active' : ''; ?>">Візити</a>
+        <a href="?<?php echo htmlspecialchars(http_build_query(array_merge($navBase, ['type' => 'click']))); ?>" class="<?php echo $filterType === 'click' ? 'active' : ''; ?>">Кліки</a>
+        <a href="?<?php echo htmlspecialchars(http_build_query(array_merge($navBase, ['type' => 'visit']))); ?>" class="<?php echo $filterType === 'visit' ? 'active' : ''; ?>">Візити</a>
         <span class="sep">|</span>
         <a href="<?php echo (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '') . '/admin/'; ?>">← Дашборд</a>
       </div>
@@ -191,8 +227,11 @@ header('Content-Type: text/html; charset=UTF-8');
           <?php if ($filterType): ?><input type="hidden" name="type" value="<?php echo htmlspecialchars($filterType); ?>"><?php endif; ?>
           <label>Від <input type="date" name="date_from" value="<?php echo $dateFrom !== null && $dateFrom !== '' ? htmlspecialchars($dateFrom) : ''; ?>" style="width:140px;"></label>
           <label>По <input type="date" name="date_to" value="<?php echo $dateTo !== null && $dateTo !== '' ? htmlspecialchars($dateTo) : ''; ?>" style="width:140px;"></label>
-          <label>ID кнопки <input type="text" name="filter_id" value="<?php echo $filterId !== null ? htmlspecialchars($filterId) : ''; ?>" placeholder="фрагмент id" style="width:110px;"></label>
+          <label>Text <input type="text" name="filter_text" value="<?php echo $filterText !== null ? htmlspecialchars($filterText) : ''; ?>" placeholder="фрагмент тексту" style="width:120px;"></label>
+          <label>ID <input type="text" name="filter_id" value="<?php echo $filterId !== null ? htmlspecialchars($filterId) : ''; ?>" placeholder="фрагмент id" style="width:110px;"></label>
           <label>Href <input type="text" name="filter_href" value="<?php echo $filterHref !== null ? htmlspecialchars($filterHref) : ''; ?>" placeholder="фрагмент посилання" style="width:130px;"></label>
+          <label>Classes <input type="text" name="filter_classes" value="<?php echo $filterClasses !== null ? htmlspecialchars($filterClasses) : ''; ?>" placeholder="фрагмент класів" style="width:120px;"></label>
+          <label>Page <input type="text" name="filter_page" value="<?php echo $filterPage !== null ? htmlspecialchars($filterPage) : ''; ?>" placeholder="фрагмент URL" style="width:160px;"></label>
           <input type="hidden" name="limit" value="<?php echo (int) $limit; ?>">
           <button type="submit" class="btn btn-primary">Застосувати</button>
         </form>
@@ -208,6 +247,9 @@ header('Content-Type: text/html; charset=UTF-8');
           <?php if ($dateTo !== null && $dateTo !== ''): ?><input type="hidden" name="date_to" value="<?php echo htmlspecialchars($dateTo); ?>"><?php endif; ?>
           <?php if ($filterId !== null && $filterId !== ''): ?><input type="hidden" name="filter_id" value="<?php echo htmlspecialchars($filterId); ?>"><?php endif; ?>
           <?php if ($filterHref !== null && $filterHref !== ''): ?><input type="hidden" name="filter_href" value="<?php echo htmlspecialchars($filterHref); ?>"><?php endif; ?>
+          <?php if ($filterText !== null && $filterText !== ''): ?><input type="hidden" name="filter_text" value="<?php echo htmlspecialchars($filterText); ?>"><?php endif; ?>
+          <?php if ($filterClasses !== null && $filterClasses !== ''): ?><input type="hidden" name="filter_classes" value="<?php echo htmlspecialchars($filterClasses); ?>"><?php endif; ?>
+          <?php if ($filterPage !== null && $filterPage !== ''): ?><input type="hidden" name="filter_page" value="<?php echo htmlspecialchars($filterPage); ?>"><?php endif; ?>
           <input type="hidden" name="limit" value="<?php echo (int) $limit; ?>">
           <label style="flex-direction:row;align-items:center;">Проєкт <select name="project" onchange="this.form.submit()" style="width:140px;margin-left:6px;"><option value="">— всі —</option><?php foreach (array_keys($projects) as $p): ?><option value="<?php echo htmlspecialchars($p); ?>" <?php echo $filterProject === $p ? 'selected' : ''; ?>><?php echo htmlspecialchars($p); ?></option><?php endforeach; ?></select></label>
         </form>
@@ -219,6 +261,9 @@ header('Content-Type: text/html; charset=UTF-8');
           <?php if ($dateTo !== null && $dateTo !== ''): ?><input type="hidden" name="date_to" value="<?php echo htmlspecialchars($dateTo); ?>"><?php endif; ?>
           <?php if ($filterId !== null && $filterId !== ''): ?><input type="hidden" name="filter_id" value="<?php echo htmlspecialchars($filterId); ?>"><?php endif; ?>
           <?php if ($filterHref !== null && $filterHref !== ''): ?><input type="hidden" name="filter_href" value="<?php echo htmlspecialchars($filterHref); ?>"><?php endif; ?>
+          <?php if ($filterText !== null && $filterText !== ''): ?><input type="hidden" name="filter_text" value="<?php echo htmlspecialchars($filterText); ?>"><?php endif; ?>
+          <?php if ($filterClasses !== null && $filterClasses !== ''): ?><input type="hidden" name="filter_classes" value="<?php echo htmlspecialchars($filterClasses); ?>"><?php endif; ?>
+          <?php if ($filterPage !== null && $filterPage !== ''): ?><input type="hidden" name="filter_page" value="<?php echo htmlspecialchars($filterPage); ?>"><?php endif; ?>
           <label style="flex-direction:row;align-items:center;">Показати <input type="number" name="limit" value="<?php echo (int) $limit; ?>" min="50" max="2000" step="50" style="width:72px;margin:0 6px;" onchange="this.form.submit()"> записів</label>
         </form>
         <span class="sep">|</span>
