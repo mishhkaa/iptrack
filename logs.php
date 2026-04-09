@@ -36,6 +36,7 @@ $filterHref = isset($_GET['filter_href']) ? trim((string) $_GET['filter_href']) 
 $filterText    = isset($_GET['filter_text'])    ? trim((string) $_GET['filter_text'])    : null;
 $filterClasses = isset($_GET['filter_classes']) ? trim((string) $_GET['filter_classes']) : null;
 $filterPage    = isset($_GET['filter_page'])    ? trim((string) $_GET['filter_page'])    : null;
+$scanLimit = isset($_GET['scan']) ? min(200000, max(1000, (int) $_GET['scan'])) : 30000;
 
 function filterRowsBySubstring(array $rows, int $colIndex, ?string $needle): array {
   if ($needle === null || $needle === '') {
@@ -110,58 +111,101 @@ foreach (scandir($baseDir) ?: [] as $name) {
 $allRows = [];
 $header = ['project', 'date', 'ip', 'tag', 'text', 'href', 'id', 'classes', 'page', 'type', 'referrer'];
 
+$buffer = [];
+$bufferSize = max($limit * 10, $scanLimit);
+$bufferIndex = 0;
+$bufferCount = 0;
+
+function bufferPush(array &$buffer, int $bufferSize, int &$bufferIndex, int &$bufferCount, array $row): void {
+  $buffer[$bufferIndex] = $row;
+  $bufferIndex = ($bufferIndex + 1) % $bufferSize;
+  if ($bufferCount < $bufferSize) {
+    $bufferCount++;
+  }
+}
+
+function bufferToArray(array $buffer, int $bufferSize, int $bufferIndex, int $bufferCount): array {
+  if ($bufferCount === 0) {
+    return [];
+  }
+  $start = $bufferCount === $bufferSize ? $bufferIndex : 0;
+  $rows = [];
+  for ($i = 0; $i < $bufferCount; $i++) {
+    $idx = ($start + $i) % $bufferSize;
+    if (isset($buffer[$idx])) {
+      $rows[] = $buffer[$idx];
+    }
+  }
+  return $rows;
+}
+
 foreach ($projects as $projectName => $csvPath) {
   if ($csvPath === null) {
     continue;
   }
-  $raw = array_map('str_getcsv', file($csvPath));
-  if (empty($raw)) {
+  $handle = @fopen($csvPath, 'r');
+  if ($handle === false) {
     continue;
   }
-  $fileHeader = array_shift($raw);
-  $fileHeader = array_pad($fileHeader, 10, '');
-  if (count($fileHeader) < 10) {
-    $fileHeader[8] = 'type';
-    $fileHeader[9] = 'referrer';
-  }
-  foreach ($raw as $row) {
+  // Skip CSV header.
+  fgetcsv($handle);
+  $readCount = 0;
+  while (($row = fgetcsv($handle)) !== false) {
+    $readCount++;
+    if ($readCount > $scanLimit) {
+      break;
+    }
     $row = array_pad($row, 10, '');
     $type = isset($row[8]) ? strtolower(trim((string) $row[8])) : '';
     if ($type === '') {
       $type = 'click';
+      $row[8] = 'click';
     }
     if ($filterType !== null && $type !== $filterType) {
       continue;
     }
-    $allRows[] = array_merge([$projectName], $row);
+    $fullRow = array_merge([$projectName], $row);
+
+    if ($dateFrom !== null && $dateFrom !== '') {
+      $tsFrom = strtotime($dateFrom);
+      if ($tsFrom) {
+        $t = parseRowDate($fullRow[1] ?? '');
+        if ($t === null || $t < $tsFrom) {
+          continue;
+        }
+      }
+    }
+    if ($dateTo !== null && $dateTo !== '') {
+      $tsTo = strtotime($dateTo . ' 23:59:59');
+      if ($tsTo) {
+        $t = parseRowDate($fullRow[1] ?? '');
+        if ($t === null || $t > $tsTo) {
+          continue;
+        }
+      }
+    }
+    if ($filterText !== null && $filterText !== '' && mb_strpos(mb_strtolower((string) ($fullRow[4] ?? '')), mb_strtolower($filterText)) === false) {
+      continue;
+    }
+    if ($filterHref !== null && $filterHref !== '' && mb_strpos(mb_strtolower((string) ($fullRow[5] ?? '')), mb_strtolower($filterHref)) === false) {
+      continue;
+    }
+    if ($filterId !== null && $filterId !== '' && mb_strpos(mb_strtolower((string) ($fullRow[6] ?? '')), mb_strtolower($filterId)) === false) {
+      continue;
+    }
+    if ($filterClasses !== null && $filterClasses !== '' && mb_strpos(mb_strtolower((string) ($fullRow[7] ?? '')), mb_strtolower($filterClasses)) === false) {
+      continue;
+    }
+    if ($filterPage !== null && $filterPage !== '' && mb_strpos(mb_strtolower((string) ($fullRow[8] ?? '')), mb_strtolower($filterPage)) === false) {
+      continue;
+    }
+
+    bufferPush($buffer, $bufferSize, $bufferIndex, $bufferCount, $fullRow);
   }
+  fclose($handle);
 }
 
-// Фільтр по даті та полях рядка (text, href, id, classes, page)
-if ($dateFrom !== null && $dateFrom !== '') {
-  $tsFrom = strtotime($dateFrom);
-  if ($tsFrom) {
-    $allRows = array_filter($allRows, function ($row) use ($tsFrom) {
-      $t = parseRowDate($row[1] ?? '');
-      return $t !== null && $t >= $tsFrom;
-    });
-  }
-}
-if ($dateTo !== null && $dateTo !== '') {
-  $tsTo = strtotime($dateTo . ' 23:59:59');
-  if ($tsTo) {
-    $allRows = array_filter($allRows, function ($row) use ($tsTo) {
-      $t = parseRowDate($row[1] ?? '');
-      return $t !== null && $t <= $tsTo;
-    });
-  }
-}
-$allRows = filterRowsBySubstring($allRows, 4, $filterText);
-$allRows = filterRowsBySubstring($allRows, 5, $filterHref);
-$allRows = filterRowsBySubstring($allRows, 6, $filterId);
-$allRows = filterRowsBySubstring($allRows, 7, $filterClasses);
-$allRows = filterRowsBySubstring($allRows, 8, $filterPage);
-$allRows = array_values($allRows);
+$allRows = bufferToArray($buffer, $bufferSize, $bufferIndex, $bufferCount);
 
 // newest first (by date column index 1 in $allRows)
 usort($allRows, function ($a, $b) {
