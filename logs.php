@@ -22,7 +22,8 @@ if (empty($_SESSION['admin_logged'])) {
   exit;
 }
 
-$baseDir = __DIR__;
+require __DIR__ . '/inc/db.php';
+
 $limit = isset($_GET['limit']) ? min(2000, max(50, (int) $_GET['limit'])) : 500;
 $filterProject = isset($_GET['project']) ? preg_replace('/[^a-z0-9\-_]/', '', $_GET['project']) : null;
 $filterType = isset($_GET['type']) ? strtolower($_GET['type']) : null;
@@ -36,17 +37,6 @@ $filterHref = isset($_GET['filter_href']) ? trim((string) $_GET['filter_href']) 
 $filterText    = isset($_GET['filter_text'])    ? trim((string) $_GET['filter_text'])    : null;
 $filterClasses = isset($_GET['filter_classes']) ? trim((string) $_GET['filter_classes']) : null;
 $filterPage    = isset($_GET['filter_page'])    ? trim((string) $_GET['filter_page'])    : null;
-$scanLimit = isset($_GET['scan']) ? min(200000, max(1000, (int) $_GET['scan'])) : 30000;
-
-function filterRowsBySubstring(array $rows, int $colIndex, ?string $needle): array {
-  if ($needle === null || $needle === '') {
-    return $rows;
-  }
-  $n = mb_strtolower($needle);
-  return array_filter($rows, function ($row) use ($n, $colIndex) {
-    return isset($row[$colIndex]) && mb_strpos(mb_strtolower((string) $row[$colIndex]), $n) !== false;
-  });
-}
 
 $navBase = [];
 if ($filterProject) {
@@ -78,142 +68,88 @@ if ($filterPage !== null && $filterPage !== '') {
 }
 $navQs = http_build_query($navBase);
 
-function parseRowDate($dateStr) {
-  if ($dateStr === '') return null;
-  $parts = explode(' ', trim($dateStr));
-  $d = isset($parts[0]) ? explode('.', $parts[0]) : [];
-  if (count($d) !== 3) {
-    $t = strtotime(str_replace('.', '-', $dateStr));
-    return $t ?: null;
-  }
-  return mktime(0, 0, 0, (int) $d[1], (int) $d[0], (int) $d[2]);
-}
-
+// Projects list for dropdown (from DB).
 $projects = [];
-foreach (scandir($baseDir) ?: [] as $name) {
-  if ($name[0] === '.' || $name === 'vendor' || $name === 'admin' || !is_dir($baseDir . '/' . $name)) {
-    continue;
-  }
-  $dirPath = $baseDir . '/' . $name;
-  $csvPath = $dirPath . '/clicks.csv';
-  $hasLog = is_file($dirPath . '/log.php');
-  if (!is_file($csvPath) && !$hasLog) {
-    continue;
-  }
-  if ($filterProject !== null && $filterProject !== '') {
-    if ($name !== $filterProject) {
-      continue;
-    }
-  }
-  $projects[$name] = is_file($csvPath) ? $csvPath : null;
+$stProjects = $pdo->query("SELECT DISTINCT project_slug FROM events ORDER BY project_slug ASC");
+foreach ($stProjects->fetchAll(PDO::FETCH_COLUMN) as $p) {
+  $projects[] = (string) $p;
 }
 
-$allRows = [];
+$where = [];
+$params = [];
+
+if ($filterProject !== null && $filterProject !== '') {
+  $where[] = 'project_slug = :project';
+  $params[':project'] = $filterProject;
+}
+if ($filterType !== null && $filterType !== '') {
+  $where[] = 'type = :type';
+  $params[':type'] = $filterType;
+}
+if ($dateFrom !== null && $dateFrom !== '') {
+  $where[] = 'created_at >= :date_from';
+  $params[':date_from'] = $dateFrom . ' 00:00:00';
+}
+if ($dateTo !== null && $dateTo !== '') {
+  $where[] = 'created_at <= :date_to';
+  $params[':date_to'] = $dateTo . ' 23:59:59';
+}
+if ($filterId !== null && $filterId !== '') {
+  $where[] = 'element_id LIKE :fid';
+  $params[':fid'] = '%' . $filterId . '%';
+}
+if ($filterHref !== null && $filterHref !== '') {
+  $where[] = 'href LIKE :fhref';
+  $params[':fhref'] = '%' . $filterHref . '%';
+}
+if ($filterText !== null && $filterText !== '') {
+  $where[] = 'text LIKE :ftext';
+  $params[':ftext'] = '%' . $filterText . '%';
+}
+if ($filterClasses !== null && $filterClasses !== '') {
+  $where[] = 'classes LIKE :fclasses';
+  $params[':fclasses'] = '%' . $filterClasses . '%';
+}
+if ($filterPage !== null && $filterPage !== '') {
+  $where[] = 'page LIKE :fpage';
+  $params[':fpage'] = '%' . $filterPage . '%';
+}
+
+$sql = "SELECT project_slug, created_at, ip, tag, text, href, element_id, classes, page, type, referrer
+        FROM events";
+if (!empty($where)) {
+  $sql .= " WHERE " . implode(' AND ', $where);
+}
+$sql .= " ORDER BY created_at DESC LIMIT :limit";
+
+$st = $pdo->prepare($sql);
+foreach ($params as $k => $v) {
+  $st->bindValue($k, $v, PDO::PARAM_STR);
+}
+$st->bindValue(':limit', (int) $limit, PDO::PARAM_INT);
+$st->execute();
+
+$rowsDb = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
 $header = ['project', 'date', 'ip', 'tag', 'text', 'href', 'id', 'classes', 'page', 'type', 'referrer'];
-
-$buffer = [];
-$bufferSize = max($limit * 10, $scanLimit);
-$bufferIndex = 0;
-$bufferCount = 0;
-
-function bufferPush(array &$buffer, int $bufferSize, int &$bufferIndex, int &$bufferCount, array $row): void {
-  $buffer[$bufferIndex] = $row;
-  $bufferIndex = ($bufferIndex + 1) % $bufferSize;
-  if ($bufferCount < $bufferSize) {
-    $bufferCount++;
-  }
+$allRows = [];
+foreach ($rowsDb as $r) {
+  $dt = (string) ($r['created_at'] ?? '');
+  $pretty = $dt !== '' ? date('d.m.Y H:i:s', strtotime($dt)) : '';
+  $allRows[] = [
+    (string) ($r['project_slug'] ?? ''),
+    $pretty,
+    (string) ($r['ip'] ?? ''),
+    (string) ($r['tag'] ?? ''),
+    (string) ($r['text'] ?? ''),
+    (string) ($r['href'] ?? ''),
+    (string) ($r['element_id'] ?? ''),
+    (string) ($r['classes'] ?? ''),
+    (string) ($r['page'] ?? ''),
+    (string) ($r['type'] ?? ''),
+    (string) ($r['referrer'] ?? ''),
+  ];
 }
-
-function bufferToArray(array $buffer, int $bufferSize, int $bufferIndex, int $bufferCount): array {
-  if ($bufferCount === 0) {
-    return [];
-  }
-  $start = $bufferCount === $bufferSize ? $bufferIndex : 0;
-  $rows = [];
-  for ($i = 0; $i < $bufferCount; $i++) {
-    $idx = ($start + $i) % $bufferSize;
-    if (isset($buffer[$idx])) {
-      $rows[] = $buffer[$idx];
-    }
-  }
-  return $rows;
-}
-
-foreach ($projects as $projectName => $csvPath) {
-  if ($csvPath === null) {
-    continue;
-  }
-  $handle = @fopen($csvPath, 'r');
-  if ($handle === false) {
-    continue;
-  }
-  // Skip CSV header.
-  fgetcsv($handle);
-  $readCount = 0;
-  while (($row = fgetcsv($handle)) !== false) {
-    $readCount++;
-    if ($readCount > $scanLimit) {
-      break;
-    }
-    $row = array_pad($row, 10, '');
-    $type = isset($row[8]) ? strtolower(trim((string) $row[8])) : '';
-    if ($type === '') {
-      $type = 'click';
-      $row[8] = 'click';
-    }
-    if ($filterType !== null && $type !== $filterType) {
-      continue;
-    }
-    $fullRow = array_merge([$projectName], $row);
-
-    if ($dateFrom !== null && $dateFrom !== '') {
-      $tsFrom = strtotime($dateFrom);
-      if ($tsFrom) {
-        $t = parseRowDate($fullRow[1] ?? '');
-        if ($t === null || $t < $tsFrom) {
-          continue;
-        }
-      }
-    }
-    if ($dateTo !== null && $dateTo !== '') {
-      $tsTo = strtotime($dateTo . ' 23:59:59');
-      if ($tsTo) {
-        $t = parseRowDate($fullRow[1] ?? '');
-        if ($t === null || $t > $tsTo) {
-          continue;
-        }
-      }
-    }
-    if ($filterText !== null && $filterText !== '' && mb_strpos(mb_strtolower((string) ($fullRow[4] ?? '')), mb_strtolower($filterText)) === false) {
-      continue;
-    }
-    if ($filterHref !== null && $filterHref !== '' && mb_strpos(mb_strtolower((string) ($fullRow[5] ?? '')), mb_strtolower($filterHref)) === false) {
-      continue;
-    }
-    if ($filterId !== null && $filterId !== '' && mb_strpos(mb_strtolower((string) ($fullRow[6] ?? '')), mb_strtolower($filterId)) === false) {
-      continue;
-    }
-    if ($filterClasses !== null && $filterClasses !== '' && mb_strpos(mb_strtolower((string) ($fullRow[7] ?? '')), mb_strtolower($filterClasses)) === false) {
-      continue;
-    }
-    if ($filterPage !== null && $filterPage !== '' && mb_strpos(mb_strtolower((string) ($fullRow[8] ?? '')), mb_strtolower($filterPage)) === false) {
-      continue;
-    }
-
-    bufferPush($buffer, $bufferSize, $bufferIndex, $bufferCount, $fullRow);
-  }
-  fclose($handle);
-}
-
-$allRows = bufferToArray($buffer, $bufferSize, $bufferIndex, $bufferCount);
-
-// newest first (by date column index 1 in $allRows)
-usort($allRows, function ($a, $b) {
-  $t1 = strtotime(str_replace('.', '-', $a[1] ?? ''));
-  $t2 = strtotime(str_replace('.', '-', $b[1] ?? ''));
-  return $t2 - $t1;
-});
-$allRows = array_slice($allRows, 0, $limit);
 
 $ipsForCopy = implode(', ', array_map(function ($row) { return $row[2] ?? ''; }, $allRows));
 
@@ -227,39 +163,58 @@ header('Content-Type: text/html; charset=UTF-8');
   <title>Логи — всі проєкти</title>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; margin: 0; padding: 0; background: linear-gradient(160deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); min-height: 100vh; color: #e2e8f0; }
-    .page { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
-    .top-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid rgba(148, 163, 184, 0.2); }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; margin: 0; padding: 0; background: radial-gradient(1200px 600px at 20% -10%, rgba(59, 130, 246, 0.18) 0%, rgba(17, 24, 39, 0) 60%), radial-gradient(900px 540px at 90% 0%, rgba(168, 85, 247, 0.14) 0%, rgba(17, 24, 39, 0) 60%), #0b1220; min-height: 100vh; color: #e2e8f0; }
+    .page { max-width: 1280px; margin: 0 auto; padding: 24px 16px; }
+    .top-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid rgba(148, 163, 184, 0.18); }
     .top-bar h1 { font-size: 1.5rem; font-weight: 600; margin: 0; letter-spacing: -0.02em; color: #f8fafc; }
     .top-bar .nav { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .top-bar a { color: #7dd3fc; text-decoration: none; font-size: 14px; padding: 8px 12px; border-radius: 8px; transition: background 0.2s, color 0.2s; }
-    .nav a.active { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
-    .card { background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(148, 163, 184, 0.12); border-radius: 12px; padding: 20px; margin-bottom: 20px; backdrop-filter: blur(8px); }
-    .card-title { font-size: 13px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 16px; }
+    .top-bar a { color: #93c5fd; text-decoration: none; font-size: 14px; padding: 9px 12px; border-radius: 10px; background: rgba(15, 23, 42, 0.55); border: 1px solid rgba(148, 163, 184, 0.16); transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.05s; }
+    .top-bar a:hover { background: rgba(30, 41, 59, 0.75); border-color: rgba(96, 165, 250, 0.34); transform: translateY(-1px); }
+    .nav a.active { background: rgba(56, 189, 248, 0.14); color: #7dd3fc; border-color: rgba(56, 189, 248, 0.28); }
+    .card { background: rgba(17, 24, 39, 0.62); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 14px; padding: 20px 20px; margin-bottom: 16px; backdrop-filter: blur(10px); }
+    .card-title { font-size: 12px; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 14px; }
     .filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
     .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #94a3b8; }
-    .filters input, .filters select { background: rgba(15, 23, 42, 0.8); color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.25); padding: 8px 12px; border-radius: 8px; font-size: 14px; }
-    .filters input:focus, .filters select:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2); }
-    .btn { padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: transform 0.05s, box-shadow 0.2s; }
-    .btn-primary { background: linear-gradient(180deg, #3b82f6, #2563eb); color: #fff; }
-    .btn-primary:hover { background: linear-gradient(180deg, #2563eb, #1d4ed8); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); }
-    .btn-copy-ips { background: linear-gradient(180deg, #10b981, #059669); color: #fff; }
-    .btn-copy-ips:hover { background: linear-gradient(180deg, #059669, #047857); box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4); }
+    .filters input, .filters select { background: rgba(2, 6, 23, 0.6); color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.22); padding: 9px 11px; border-radius: 10px; font-size: 14px; }
+    .filters input:focus, .filters select:focus { outline: none; border-color: rgba(56, 189, 248, 0.7); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16); }
+    .btn { padding: 9px 14px; border-radius: 10px; font-size: 14px; font-weight: 650; cursor: pointer; border: none; transition: transform 0.05s, box-shadow 0.2s, background 0.2s, opacity 0.15s; }
+    .btn:hover { opacity: 0.96; }
+    .btn-primary { background: linear-gradient(180deg, #3b82f6, #2563eb); color: #fff; box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24); }
+    .btn-primary:hover { background: linear-gradient(180deg, #2563eb, #1d4ed8); box-shadow: 0 12px 26px rgba(37, 99, 235, 0.28); }
+    .btn-copy-ips { background: linear-gradient(180deg, #10b981, #059669); color: #fff; box-shadow: 0 10px 22px rgba(5, 150, 105, 0.18); }
+    .btn-copy-ips:hover { background: linear-gradient(180deg, #059669, #047857); box-shadow: 0 12px 26px rgba(5, 150, 105, 0.22); }
     .sep { color: rgba(148, 163, 184, 0.4); font-weight: 300; user-select: none; }
-    .download-hint { font-size: 13px; color: #94a3b8; padding: 10px 14px; background: rgba(15, 23, 42, 0.5); border-radius: 8px; border: 1px dashed rgba(148, 163, 184, 0.3); }
-    .download-hint a { color: #38bdf8; text-decoration: none; font-weight: 500; }
+    .download-hint { font-size: 13px; color: #94a3b8; padding: 10px 14px; background: rgba(2, 6, 23, 0.35); border-radius: 10px; border: 1px dashed rgba(148, 163, 184, 0.26); }
+    .download-hint a { color: #7dd3fc; text-decoration: none; font-weight: 650; }
     .download-hint a:hover { text-decoration: underline; }
-    .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.12); }
+    .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.12); background: rgba(2, 6, 23, 0.22); }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid rgba(148, 163, 184, 0.08); }
-    th { background: rgba(15, 23, 42, 0.7); color: #94a3b8; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; position: sticky; top: 0; }
+    th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid rgba(148, 163, 184, 0.1); }
+    th { background: rgba(2, 6, 23, 0.72); color: #94a3b8; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; position: sticky; top: 0; backdrop-filter: blur(8px); white-space: nowrap; }
     tbody tr { transition: background 0.15s; }
     tbody tr:hover td { background: rgba(56, 189, 248, 0.06); }
     .type-click { color: #86efac; }
     .type-visit { color: #fcd34d; }
     .project { font-weight: 600; color: #a78bfa; max-width: 100px; }
-    td { max-width: 200px; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1; }
-    .empty { color: #64748b; padding: 40px 24px; text-align: center; font-size: 15px; }
+    td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1; }
+    .empty { color: #64748b; padding: 44px 24px; text-align: center; font-size: 15px; }
+
+    @media (max-width: 900px) {
+      .page { padding: 18px 12px; }
+      .top-bar { gap: 10px; }
+      .top-bar .nav { gap: 8px; }
+      .filters form { width: 100%; }
+      .btn { width: auto; }
+      td { max-width: 220px; }
+    }
+
+    @media (max-width: 560px) {
+      .top-bar { flex-direction: column; align-items: flex-start; }
+      .top-bar a { padding: 8px 10px; font-size: 13px; }
+      .filters label { width: 100%; }
+      .filters input, .filters select { width: 100%; }
+      .sep { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -307,7 +262,7 @@ header('Content-Type: text/html; charset=UTF-8');
           <?php if ($filterClasses !== null && $filterClasses !== ''): ?><input type="hidden" name="filter_classes" value="<?php echo htmlspecialchars($filterClasses); ?>"><?php endif; ?>
           <?php if ($filterPage !== null && $filterPage !== ''): ?><input type="hidden" name="filter_page" value="<?php echo htmlspecialchars($filterPage); ?>"><?php endif; ?>
           <input type="hidden" name="limit" value="<?php echo (int) $limit; ?>">
-          <label style="flex-direction:row;align-items:center;">Проєкт <select name="project" onchange="this.form.submit()" style="width:140px;margin-left:6px;"><option value="">— всі —</option><?php foreach (array_keys($projects) as $p): ?><option value="<?php echo htmlspecialchars($p); ?>" <?php echo $filterProject === $p ? 'selected' : ''; ?>><?php echo htmlspecialchars($p); ?></option><?php endforeach; ?></select></label>
+          <label style="flex-direction:row;align-items:center;">Проєкт <select name="project" onchange="this.form.submit()" style="width:140px;margin-left:6px;"><option value="">— всі —</option><?php foreach ($projects as $p): ?><option value="<?php echo htmlspecialchars($p); ?>" <?php echo $filterProject === $p ? 'selected' : ''; ?>><?php echo htmlspecialchars($p); ?></option><?php endforeach; ?></select></label>
         </form>
         <span class="sep">|</span>
         <form method="get" style="display:inline-flex;align-items:center;gap:8px;">

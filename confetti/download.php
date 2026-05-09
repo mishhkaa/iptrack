@@ -8,4 +8,4 @@ if (empty($_SESSION['admin_logged'])) {
   exit('Доступ заборонено. Скачування лише через Дашборд.');
 }
 
-iptrack_export_project_excel($pdo, 'landlviv');
+iptrack_export_project_excel($pdo, 'confetti');

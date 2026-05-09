@@ -185,52 +185,60 @@ header('Content-Type: text/html; charset=UTF-8');
   <title>Дашборд — IPTrack</title>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 20px 16px; background: #111827; color: #e5e7eb; line-height: 1.5; }
-    .wrap { max-width: 960px; margin: 0 auto; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 24px 16px; background: radial-gradient(1200px 600px at 20% -10%, rgba(59, 130, 246, 0.18) 0%, rgba(17, 24, 39, 0) 60%), radial-gradient(900px 540px at 90% 0%, rgba(168, 85, 247, 0.14) 0%, rgba(17, 24, 39, 0) 60%), #0b1220; color: #e5e7eb; line-height: 1.5; }
+    .wrap { max-width: 1280px; margin: 0 auto; }
     h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 24px; color: #f9fafb; letter-spacing: -0.02em; }
     a { color: #60a5fa; text-decoration: none; }
     a:hover { text-decoration: underline; color: #93c5fd; }
-    .toolbar { margin-bottom: 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-    .toolbar a { padding: 8px 14px; border-radius: 8px; font-size: 14px; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(71, 85, 105, 0.5); transition: background 0.15s, border-color 0.15s; }
-    .toolbar a:hover { background: rgba(51, 65, 85, 0.8); border-color: rgba(96, 165, 250, 0.4); text-decoration: none; }
-    .card { background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; }
-    .card h2 { font-size: 1rem; font-weight: 600; margin: 0 0 16px; color: #d1d5db; }
+    .toolbar { margin-bottom: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .toolbar a { padding: 9px 14px; border-radius: 10px; font-size: 14px; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(148, 163, 184, 0.18); transition: background 0.15s, border-color 0.15s, transform 0.05s; }
+    .toolbar a:hover { background: rgba(30, 41, 59, 0.8); border-color: rgba(96, 165, 250, 0.38); text-decoration: none; transform: translateY(-1px); }
+    .card { background: rgba(17, 24, 39, 0.62); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 14px; padding: 20px 22px; margin-bottom: 16px; backdrop-filter: blur(10px); }
+    .card h2 { font-size: 1rem; font-weight: 600; margin: 0 0 14px; color: #dbeafe; letter-spacing: -0.01em; }
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
     .card table { margin-top: 12px; }
-    .card table thead th { padding: 12px 14px; text-align: left; border-bottom: 1px solid #374151; color: #9ca3af; font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
-    .card table tbody td { padding: 14px; border-bottom: 1px solid #374151; vertical-align: top; }
+    .card table thead th { padding: 12px 14px; text-align: left; border-bottom: 1px solid rgba(148, 163, 184, 0.16); color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+    .card table tbody td { padding: 14px; border-bottom: 1px solid rgba(148, 163, 184, 0.12); vertical-align: top; color: #e2e8f0; }
     .card table tbody tr:last-child td { border-bottom: none; }
-    .card table tbody tr:hover td { background: rgba(55, 65, 81, 0.3); }
-    .script-cell { min-width: 320px; }
-    .script-wrap { background: #0f172a; border: 1px solid #1e3a5f; border-radius: 8px; overflow: hidden; }
-    .script-box { padding: 12px 16px; font-family: ui-monospace, 'SF Mono', monospace; font-size: 13px; overflow-x: auto; white-space: nowrap; }
+    .card table tbody tr:hover td { background: rgba(56, 189, 248, 0.06); }
+    .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.12); background: rgba(2, 6, 23, 0.25); }
+    .script-cell { min-width: 380px; }
+    .script-wrap { background: rgba(2, 6, 23, 0.55); border: 1px solid rgba(59, 130, 246, 0.22); border-radius: 10px; overflow: hidden; }
+    .script-box { padding: 12px 14px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 12px; overflow-x: auto; white-space: nowrap; }
     .script-box code { color: #e2e8f0; }
-    .script-actions { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: rgba(15, 23, 42, 0.6); border-top: 1px solid #1e3a5f; }
+    .script-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 8px 12px; background: rgba(2, 6, 23, 0.25); border-top: 1px solid rgba(59, 130, 246, 0.18); }
     .script-actions .copy-btn { margin: 0; }
     th, td { text-align: left; }
     th { color: #94a3b8; }
-    input[type="text"], input[type="url"] { padding: 10px 14px; background: #111827; border: 1px solid #374151; color: #e5e7eb; border-radius: 8px; font-size: 14px; width: 100%; max-width: 260px; }
-    input:focus { outline: none; border-color: #60a5fa; box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2); }
-    button, .btn { display: inline-block; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; text-decoration: none; transition: opacity 0.15s, transform 0.05s; }
+    input[type="text"], input[type="url"] { padding: 10px 12px; background: rgba(2, 6, 23, 0.6); border: 1px solid rgba(148, 163, 184, 0.22); color: #e5e7eb; border-radius: 10px; font-size: 14px; width: 100%; max-width: 320px; }
+    input:focus { outline: none; border-color: rgba(56, 189, 248, 0.7); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16); }
+    button, .btn { display: inline-block; padding: 10px 14px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; text-decoration: none; transition: opacity 0.15s, transform 0.05s, box-shadow 0.2s, background 0.2s; }
     button:hover, .btn:hover { opacity: 0.95; }
-    button:not(.copy-btn), .btn { background: #3b82f6; color: #fff; }
-    button:not(.copy-btn):hover, .btn:hover { background: #2563eb; }
-    .btn-danger { background: #dc2626; }
-    .btn-danger:hover { background: #b91c1c; }
+    button:not(.copy-btn), .btn { background: linear-gradient(180deg, #3b82f6, #2563eb); color: #fff; box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22); }
+    button:not(.copy-btn):hover, .btn:hover { background: linear-gradient(180deg, #2563eb, #1d4ed8); box-shadow: 0 10px 22px rgba(37, 99, 235, 0.28); }
+    .btn-danger { background: linear-gradient(180deg, #ef4444, #dc2626); box-shadow: 0 8px 18px rgba(220, 38, 38, 0.18); }
+    .btn-danger:hover { background: linear-gradient(180deg, #dc2626, #b91c1c); box-shadow: 0 10px 22px rgba(220, 38, 38, 0.22); }
     .btn + .btn { margin-left: 8px; }
     .msg { color: #86efac; margin-bottom: 16px; padding: 12px 16px; background: rgba(34, 197, 94, 0.1); border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); font-size: 14px; }
     .err { color: #f87171; margin-bottom: 16px; padding: 12px 16px; background: rgba(248, 113, 113, 0.08); border-radius: 8px; border: 1px solid rgba(248, 113, 113, 0.25); font-size: 14px; }
-    .copy-btn { margin-top: 0; font-size: 12px; padding: 6px 12px; background: #374151; color: #e5e7eb; }
-    .copy-btn:hover { background: #4b5563; }
-    .form-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+    .copy-btn { margin-top: 0; font-size: 12px; padding: 7px 10px; background: rgba(148, 163, 184, 0.14); color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.18); }
+    .copy-btn:hover { background: rgba(148, 163, 184, 0.22); }
+    .form-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
     .form-row label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #9ca3af; }
     .form-row label input { max-width: none; }
     .card p { margin: 0 0 12px; }
     .card p:last-of-type { margin-bottom: 16px; }
-    .cron-code { background: #0f172a; padding: 10px 14px; border-radius: 8px; font-size: 12px; color: #94a3b8; margin-top: 8px; overflow-x: auto; border: 1px solid #1e3a5f; }
+    .cron-code { background: rgba(2, 6, 23, 0.55); padding: 10px 12px; border-radius: 10px; font-size: 12px; color: #94a3b8; margin-top: 8px; overflow-x: auto; border: 1px solid rgba(148, 163, 184, 0.18); }
     .status-ok { color: #86efac; }
     .status-down, .status-timeout, .status-ssl_error, .status-ssl_expired, .status-error { color: #f87171; }
     .status-pending { color: #9ca3af; }
+
+    @media (max-width: 900px) {
+      body { padding: 18px 12px; }
+      .script-cell { min-width: 320px; }
+      input[type="text"], input[type="url"] { max-width: none; }
+      .btn + .btn { margin-left: 0; }
+    }
   </style>
 </head>
 <body>
@@ -270,40 +278,42 @@ header('Content-Type: text/html; charset=UTF-8');
       <?php if (empty($projects)): ?>
         <p style="color:#94a3b8;">Ще немає проєктів. Додайте проєкт вище — з'явиться посилання на трекер і код для вставки на сайт.</p>
       <?php else: ?>
-        <table>
-          <thead>
-            <tr>
-              <th>Назва</th>
-              <th>Slug</th>
-              <th>Скрипт</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($projects as $p): ?>
-              <?php
-              $scriptUrl = $trackerBase . $p['slug'] . '/google-ads/tracker.js';
-              $scriptHtml = '<script src="' . htmlspecialchars($scriptUrl) . '"></script>';
-              ?>
+        <div class="table-wrap">
+          <table>
+            <thead>
               <tr>
-                <td><?php echo htmlspecialchars($p['name']); ?></td>
-                <td><code><?php echo htmlspecialchars($p['slug']); ?></code></td>
-                <td class="script-cell">
-                  <div class="script-wrap">
-                    <div class="script-box"><code><?php echo htmlspecialchars($scriptHtml); ?></code></div>
-                    <div class="script-actions">
-                      <button type="button" class="copy-btn" data-copy="<?php echo htmlspecialchars($scriptHtml); ?>">Копіювати</button>
-                    </div>
-                  </div>
-                </td>
-                <td style="white-space:nowrap;">
-                  <a href="<?php echo htmlspecialchars($trackerBase . $p['slug'] . '/download.php'); ?>" class="btn">↓ Excel</a>
-                  <a href="<?php echo htmlspecialchars($baseUrl . '/admin/?delete=' . $p['slug']); ?>" class="btn btn-danger" onclick="return confirm('Видалити проєкт <?php echo htmlspecialchars($p['name']); ?>?');">Видалити</a>
-                </td>
+                <th>Назва</th>
+                <th>Slug</th>
+                <th>Скрипт</th>
+                <th></th>
               </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              <?php foreach ($projects as $p): ?>
+                <?php
+                $scriptUrl = $trackerBase . $p['slug'] . '/google-ads/tracker.js';
+                $scriptHtml = '<script src="' . htmlspecialchars($scriptUrl) . '"></script>';
+                ?>
+                <tr>
+                  <td><?php echo htmlspecialchars($p['name']); ?></td>
+                  <td><code><?php echo htmlspecialchars($p['slug']); ?></code></td>
+                  <td class="script-cell">
+                    <div class="script-wrap">
+                      <div class="script-box"><code><?php echo htmlspecialchars($scriptHtml); ?></code></div>
+                      <div class="script-actions">
+                        <button type="button" class="copy-btn" data-copy="<?php echo htmlspecialchars($scriptHtml); ?>">Копіювати</button>
+                      </div>
+                    </div>
+                  </td>
+                  <td style="white-space:nowrap;">
+                    <a href="<?php echo htmlspecialchars($trackerBase . $p['slug'] . '/download.php'); ?>" class="btn">↓ Excel</a>
+                    <a href="<?php echo htmlspecialchars($baseUrl . '/admin/?delete=' . $p['slug']); ?>" class="btn btn-danger" onclick="return confirm('Видалити проєкт <?php echo htmlspecialchars($p['name']); ?>?');">Видалити</a>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
       <?php endif; ?>
     </div>
 

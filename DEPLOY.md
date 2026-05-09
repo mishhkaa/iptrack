@@ -24,18 +24,17 @@ composer install --no-dev
 
 Після `git pull` переконайся, що права на запис у папках проектів залишились (див. розділ 2 нижче).
 
-**Таблички (Excel і CSV):** у репозиторії їх немає (у `.gitignore`: `*.csv`, `*.xlsx`). При `git pull` вони ніколи не змінюються — залишаються ті, що на сервері.
+**Дані (SQLite):** кліки/візити зберігаються у SQLite в `admin/data/iptrack.db` (і в репозиторій не комітяться). При `git pull` файл бази не змінюється — залишається той, що на сервері.
 
 ### Якщо pull показує: "untracked working tree files would be overwritten by merge"
 
-На сервері папки `cdcamp/` або `maisonellyse/` були створені вручну (не з git), тому git не перезаписує їх. Зроби так (**збережи дані з clicks.csv перед видаленням**):
+На сервері папки `cdcamp/` або `maisonellyse/` могли бути створені вручну (не з git), тому git не перезаписує їх. Зроби так (**збережи базу `admin/data/iptrack.db` перед видаленням**, якщо вона є):
 
 ```bash
 cd /home/administrator/web/checkipweb.top/public_html
 
-# 1) Зберегти логи (clicks.csv), якщо вони є
-cp cdcamp/clicks.csv /tmp/cdcamp_clicks.csv.bak 2>/dev/null || true
-cp maisonellyse/clicks.csv /tmp/maisonellyse_clicks.csv.bak 2>/dev/null || true
+# 1) Зберегти базу SQLite (усі логи), якщо вона є
+cp admin/data/iptrack.db /tmp/iptrack.db.bak 2>/dev/null || true
 
 # 2) Видалити конфліктні папки, щоб git міг підтягнути їх з репо
 rm -rf cdcamp maisonellyse
@@ -43,14 +42,12 @@ rm -rf cdcamp maisonellyse
 # 3) Підтягнути код
 git pull origin main
 
-# 4) Відновити збережені логи (щоб не втратити кліки/візити)
-cp /tmp/cdcamp_clicks.csv.bak cdcamp/clicks.csv 2>/dev/null || true
-cp /tmp/maisonellyse_clicks.csv.bak maisonellyse/clicks.csv 2>/dev/null || true
+# 4) Відновити базу (щоб не втратити кліки/візити)
+cp /tmp/iptrack.db.bak admin/data/iptrack.db 2>/dev/null || true
 
 # 5) Залежності та права
 composer install --no-dev
-sudo chown -R www-data:www-data cdcamp fp-models maisonellyse
-# або: sudo chmod -R g+w cdcamp fp-models maisonellyse
+sudo chown -R www-data:www-data admin/data
 ```
 
 Після цього оновлення мають застосовуватись без помилки.
@@ -137,9 +134,9 @@ ls -la /home/administrator/web/checkipweb.top/public_html/cdcamp/log.php
 sudo systemctl reload apache2
 ```
 
-## 2. Права на запис (щоб створювався clicks.csv)
+## 2. Права на запис (SQLite база + папка admin/data)
 
-PHP повинен мати право створювати файл `clicks.csv` у кожній папці проекту. Дозволь запис користувачу, під яким крутиться PHP (часто `www-data`):
+PHP повинен мати право писати базу SQLite в `admin/data/iptrack.db`. Дозволь запис користувачу, під яким крутиться PHP (часто `www-data`):
 
 ```bash
 # Дізнатися, хто виконує PHP (часто www-data)
@@ -152,17 +149,14 @@ ps aux | grep apache2
 
 ```bash
 cd /home/administrator/web/checkipweb.top/public_html
-
-sudo chown -R www-data:www-data cdcamp fp-models maisonellyse
-# або, якщо сайт крутиться під administrator:
-# sudo chown -R administrator:www-data cdcamp fp-models maisonellyse
+sudo chown -R www-data:www-data admin/data
 ```
 
 Якщо хочеш лишити власника root — дай групі право запису:
 
 ```bash
-sudo chgrp -R www-data cdcamp fp-models maisonellyse
-sudo chmod -R g+w cdcamp fp-models maisonellyse
+sudo chgrp -R www-data admin/data
+sudo chmod -R g+w admin/data
 ```
 
 ## 3. Перевірка після налаштування
@@ -170,11 +164,20 @@ sudo chmod -R g+w cdcamp fp-models maisonellyse
 1. Відкрий у браузері: `https://checkipweb.top/cdcamp/log.php`  
    Очікується порожня відповідь або "ok" (GET без POST — нормально).
 2. Зроби клік на сторінці з підключеним трекером (або просто відкрий сторінку — записаться візит).
-3. Перевір, що з’явився файл:
+3. Перевір, що база створилась і не порожня:
    ```bash
-   ls -la /home/administrator/web/checkipweb.top/public_html/cdcamp/clicks.csv
+   ls -la /home/administrator/web/checkipweb.top/public_html/admin/data/iptrack.db
    ```
 4. Відкрий: `https://checkipweb.top/cdcamp/download.php` — має завантажитися Excel з двома аркушами (Clicks та Visits).
+
+## 6. Міграція старих CSV у SQLite (одноразово)
+
+Якщо на сервері раніше були файли `*/clicks.csv`, їх можна перенести в SQLite та більше не використовувати CSV:
+
+```bash
+cd /home/administrator/web/checkipweb.top/public_html/admin
+php migrate_csv_to_db.php
+```
 
 ## 4. Логи помилок
 

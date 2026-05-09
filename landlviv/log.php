@@ -4,6 +4,8 @@ header("Access-Control-Allow-Headers: Content-Type");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Content-Type: text/plain; charset=UTF-8");
 
+date_default_timezone_set('Europe/Kyiv');
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   http_response_code(200);
   exit;
@@ -12,53 +14,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $data = json_decode(file_get_contents("php://input"), true);
 if (!$data) exit;
 
-$ip =
-  $_SERVER['HTTP_CF_CONNECTING_IP'] ??
-  $_SERVER['HTTP_X_FORWARDED_FOR'] ??
-  $_SERVER['REMOTE_ADDR'];
+require __DIR__ . '/../inc/db.php';
 
-$file = __DIR__ . "/clicks.csv";
-$isNew = !file_exists($file);
-
-$fp = @fopen($file, "a");
-if ($fp === false) {
-  http_response_code(503);
-  header("Content-Type: text/plain; charset=UTF-8");
-  echo "Cannot write to " . basename(__DIR__) . "/clicks.csv. Check folder permissions (chown/chmod).";
+if (iptrack_insert_event($pdo, $data, basename(__DIR__))) {
+  echo "ok";
   exit;
 }
 
-if ($isNew) {
-  fputcsv($fp, [
-    "date",
-    "ip",
-    "tag",
-    "text",
-    "href",
-    "id",
-    "classes",
-    "page",
-    "type",
-    "referrer"
-  ]);
-}
-
-$type = $data['type'] ?? 'click';
-$referrer = $data['referrer'] ?? '';
-
-fputcsv($fp, [
-  date("d.m.Y H:i:s"),
-  $ip,
-  $data['tag'] ?? '',
-  $data['text'] ?? '',
-  $data['href'] ?? '',
-  $data['id'] ?? '',
-  $data['classes'] ?? '',
-  $data['page'] ?? '',
-  $type,
-  $referrer
-]);
-
-fclose($fp);
-
-echo "ok";
+http_response_code(500);
+echo "db_error";

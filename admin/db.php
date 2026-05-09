@@ -3,6 +3,9 @@ if (!defined('ADMIN_INIT')) {
   define('ADMIN_INIT', true);
 }
 
+// Ukraine timezone (handles DST automatically).
+date_default_timezone_set('Europe/Kyiv');
+
 $dataDir = __DIR__ . '/data';
 if (!is_dir($dataDir)) {
   mkdir($dataDir, 0755, true);
@@ -57,6 +60,27 @@ $pdo->exec("
   )
 ");
 
+// Tracking events table (clicks/visits) stored in the same DB.
+$pdo->exec("
+  CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_slug TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    ip TEXT NOT NULL,
+    tag TEXT,
+    text TEXT,
+    href TEXT,
+    element_id TEXT,
+    classes TEXT,
+    page TEXT,
+    type TEXT NOT NULL,
+    referrer TEXT,
+    fingerprint TEXT NOT NULL UNIQUE
+  )
+");
+$pdo->exec("CREATE INDEX IF NOT EXISTS idx_events_project_created_at ON events(project_slug, created_at)");
+$pdo->exec("CREATE INDEX IF NOT EXISTS idx_events_type_created_at ON events(type, created_at)");
+
 function getPasswordHash(PDO $pdo) {
   $st = $pdo->query("SELECT password_hash FROM auth WHERE id = 1");
   $row = $st->fetch(PDO::FETCH_ASSOC);
@@ -72,7 +96,7 @@ function getAllProjects(PDO $pdo) {
 }
 
 function addProject(PDO $pdo, string $name, string $slug) {
-  $pdo->prepare("INSERT INTO projects (name, slug) VALUES (?, ?)")->execute([$name, $slug]);
+  $pdo->prepare("INSERT INTO projects (name, slug, created_at) VALUES (?, ?, ?)")->execute([$name, $slug, date('Y-m-d H:i:s')]);
 }
 
 function deleteProject(PDO $pdo, string $slug) {
@@ -90,7 +114,7 @@ function getMonitoredUrls(PDO $pdo) {
 }
 
 function addMonitoredUrl(PDO $pdo, string $name, string $url) {
-  $pdo->prepare("INSERT INTO monitored_urls (name, url) VALUES (?, ?)")->execute([$name, $url]);
+  $pdo->prepare("INSERT INTO monitored_urls (name, url, created_at) VALUES (?, ?, ?)")->execute([$name, $url, date('Y-m-d H:i:s')]);
 }
 
 function deleteMonitoredUrl(PDO $pdo, int $id) {
@@ -99,8 +123,8 @@ function deleteMonitoredUrl(PDO $pdo, int $id) {
 
 function updateMonitoredResult(PDO $pdo, int $id, string $status, ?string $lastError, bool $notifySent = false) {
   $notifyAt = $notifySent ? date('Y-m-d H:i:s') : null;
-  $pdo->prepare("UPDATE monitored_urls SET last_checked_at = datetime('now'), status = ?, last_error = ?, notify_sent_at = COALESCE(?, notify_sent_at) WHERE id = ?")
-    ->execute([$status, $lastError ?? '', $notifyAt, $id]);
+  $pdo->prepare("UPDATE monitored_urls SET last_checked_at = ?, status = ?, last_error = ?, notify_sent_at = COALESCE(?, notify_sent_at) WHERE id = ?")
+    ->execute([date('Y-m-d H:i:s'), $status, $lastError ?? '', $notifyAt, $id]);
 }
 
 function getMonitoredUrlsToCheck(PDO $pdo) {

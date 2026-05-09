@@ -128,8 +128,8 @@ foreach ($rows as $r) {
   }
 
   $notifyAt = ($status === 'ok') ? null : ($notifySent ? date('Y-m-d H:i:s') : $notifySentAt);
-  $pdo->prepare("UPDATE monitored_urls SET last_checked_at = datetime('now'), status = ?, last_error = ?, notify_sent_at = ? WHERE id = ?")
-    ->execute([$status, $error, $notifyAt, $id]);
+  $pdo->prepare("UPDATE monitored_urls SET last_checked_at = ?, status = ?, last_error = ?, notify_sent_at = ? WHERE id = ?")
+    ->execute([date('Y-m-d H:i:s'), $status, $error, $notifyAt, $id]);
 }
 
 if ($isCli) {
