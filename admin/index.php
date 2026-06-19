@@ -165,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_project'])) {
       try {
         addProject($pdo, $name, $slug);
       } catch (PDOException $e) {
-        $error = 'Помилка бази даних: ' . $e->getMessage();
+        $error = iptrack_format_pdo_error($e);
       }
       if ($error === '') {
         $createErrors = createProjectFiles($basePath, $slug);
@@ -186,6 +186,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_project'])) {
 if (isset($_GET['msg'])) {
   $message = (string) $_GET['msg'];
 }
+
+$dbStorageError = iptrack_sqlite_storage_error($basePath . '/admin/data', $basePath . '/admin/data/iptrack.db');
 
 $projects = getAllProjects($pdo);
 $monitoredUrls = getMonitoredUrls($pdo);
@@ -272,6 +274,9 @@ header('Content-Type: text/html; charset=UTF-8');
     <?php endif; ?>
     <?php if ($error !== ''): ?>
       <p class="err"><?php echo htmlspecialchars($error); ?></p>
+    <?php endif; ?>
+    <?php if (!empty($dbStorageError)): ?>
+      <p class="err"><?php echo htmlspecialchars($dbStorageError); ?></p>
     <?php endif; ?>
 
     <div class="card">

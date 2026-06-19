@@ -5,25 +5,18 @@
  */
 date_default_timezone_set('Europe/Kyiv');
 
+require __DIR__ . '/sqlite_storage.php';
+
 $dbPath = __DIR__ . '/../admin/data/iptrack.db';
 $dbDir = dirname($dbPath);
-if (!is_dir($dbDir)) {
-  mkdir($dbDir, 0755, true);
-}
+iptrack_prepare_sqlite_dir($dbDir);
 
 try {
   $pdo = new PDO('sqlite:' . $dbPath, null, null, [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
   ]);
 } catch (PDOException $e) {
-  $msg = $e->getMessage();
-  if (stripos($msg, 'could not find driver') !== false) {
-    $msg .= ' — увімкни розширення PHP pdo_sqlite (див. DEPLOY.md).';
-  }
-  if (stripos($msg, 'unable to open database file') !== false) {
-    $msg .= ' — перевір права на папку admin/data (chown/chmod).';
-  }
-  die('DB error: ' . htmlspecialchars($msg));
+  die('DB error: ' . htmlspecialchars(iptrack_append_pdo_open_hint($e->getMessage())));
 }
 
 // Main events table.
