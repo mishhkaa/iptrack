@@ -3,16 +3,36 @@
  * Create project folder and log.php, download.php, google-ads/tracker.js.
  * Called from admin with base path = parent of admin (public_html).
  */
+function getProjectBasePathError(string $basePath): ?string {
+  $basePath = rtrim($basePath, '/');
+  if (!is_dir($basePath)) {
+    return 'Коренева папка сайту не знайдена.';
+  }
+  if (!is_writable($basePath)) {
+    return 'Немає прав на запис у public_html — PHP не може створити папку проєкту. На сервері: sudo chgrp www-data public_html && sudo chmod g+w public_html (див. DEPLOY.md).';
+  }
+  return null;
+}
+
 function createProjectFiles(string $basePath, string $slug): array {
   $errors = [];
+  $baseError = getProjectBasePathError($basePath);
+  if ($baseError !== null) {
+    return [$baseError];
+  }
+
   $dir = rtrim($basePath, '/') . '/' . $slug;
   if (file_exists($dir) && !is_dir($dir)) {
     return ['Папка не може бути створена: ім\'я зайняте файлом.'];
   }
+  if (is_dir($dir) && !is_writable($dir)) {
+    return ['Папка проєкту існує, але PHP не має прав на запис у неї.'];
+  }
   if (!file_exists($dir)) {
-    if (!mkdir($dir, 0755, true)) {
-      return ['Не вдалося створити папку проєкту.'];
+    if (!@mkdir($dir, 0775, true) && !is_dir($dir)) {
+      return ['Не вдалося створити папку проєкту. Перевірте права на public_html.'];
     }
+    @chmod($dir, 0775);
   }
   $logPhp = <<<'LOG'
 <?php
@@ -101,7 +121,11 @@ TRACK;
   }
   $trackerDir = $dir . '/google-ads';
   if (!is_dir($trackerDir)) {
-    mkdir($trackerDir, 0755, true);
+    if (!@mkdir($trackerDir, 0775, true) && !is_dir($trackerDir)) {
+      $errors[] = 'Не вдалося створити папку google-ads/.';
+      return $errors;
+    }
+    @chmod($trackerDir, 0775);
   }
   if (file_put_contents($trackerDir . '/tracker.js', $trackerJs) === false) {
     $errors[] = 'Не вдалося записати google-ads/tracker.js';

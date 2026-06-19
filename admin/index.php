@@ -3,13 +3,17 @@ $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
   || (isset($_SERVER['SERVER_PORT']) && (string) $_SERVER['SERVER_PORT'] === '443')
   || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
 $cookieParams = session_get_cookie_params();
+$sessionSameSite = $cookieParams['samesite'] ?? 'Lax';
+if (!in_array($sessionSameSite, ['Lax', 'Strict', 'None'], true)) {
+  $sessionSameSite = 'Lax';
+}
 session_set_cookie_params([
   'lifetime' => $cookieParams['lifetime'] ?? 0,
   'path' => '/',
   'domain' => $cookieParams['domain'] ?? '',
   'secure' => $isHttps,
   'httponly' => $cookieParams['httponly'] ?? true,
-  'samesite' => $cookieParams['samesite'] ?? 'Lax',
+  'samesite' => $sessionSameSite,
 ]);
 session_start();
 define('ADMIN_INIT', true);
@@ -104,7 +108,7 @@ if (isset($_GET['delete']) && is_string($_GET['delete'])) {
 if (isset($_GET['import']) && $_GET['import'] === '1') {
   $imported = 0;
   foreach (scandir($basePath) ?: [] as $name) {
-    if ($name[0] === '.' || $name === 'admin' || $name === 'vendor' || !is_dir($basePath . '/' . $name)) continue;
+    if ($name === '' || $name[0] === '.' || $name === 'admin' || $name === 'vendor' || $name === 'inc' || !is_dir($basePath . '/' . $name)) continue;
     if (!is_file($basePath . '/' . $name . '/log.php')) continue;
     if (projectExists($pdo, $name)) continue;
     addProject($pdo, $name, $name);
@@ -151,17 +155,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_project'])) {
     $error = 'Заповніть назву та slug (латиниця, цифри, дефіс).';
   } elseif (projectExists($pdo, $slug)) {
     $error = 'Такий slug вже існує.';
-  } elseif (in_array($slug, ['admin', 'vendor', 'data'], true)) {
+  } elseif (in_array($slug, ['admin', 'vendor', 'data', 'inc'], true)) {
     $error = 'Цей slug заборонено.';
   } else {
-    $createErrors = createProjectFiles($basePath, $slug);
-    if (!empty($createErrors)) {
-      $error = implode(' ', $createErrors);
+    $basePathError = getProjectBasePathError($basePath);
+    if ($basePathError !== null) {
+      $error = $basePathError;
     } else {
-      addProject($pdo, $name, $slug);
-      $message = 'Проєкт «' . htmlspecialchars($name) . '» створено.';
-      header('Location: ' . $baseUrl . '/admin/?msg=' . urlencode($message));
-      exit;
+      try {
+        addProject($pdo, $name, $slug);
+      } catch (PDOException $e) {
+        $error = 'Помилка бази даних: ' . $e->getMessage();
+      }
+      if ($error === '') {
+        $createErrors = createProjectFiles($basePath, $slug);
+        if (!empty($createErrors)) {
+          deleteProject($pdo, $slug);
+          deleteProjectDir($basePath, $slug);
+          $error = implode(' ', $createErrors);
+        } else {
+          $message = 'Проєкт «' . $name . '» створено.';
+          header('Location: ' . $baseUrl . '/admin/?msg=' . urlencode($message));
+          exit;
+        }
+      }
     }
   }
 }
