@@ -7,8 +7,9 @@ date_default_timezone_set('Europe/Kyiv');
 
 require __DIR__ . '/sqlite_storage.php';
 
-$dbPath = __DIR__ . '/../admin/data/iptrack.db';
-$dbDir = dirname($dbPath);
+$sqlitePaths = iptrack_resolve_sqlite_paths(__DIR__ . '/../admin/data');
+$dbPath = $sqlitePaths['path'];
+$dbDir = $sqlitePaths['dir'];
 iptrack_prepare_sqlite_dir($dbDir);
 
 try {

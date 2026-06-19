@@ -187,7 +187,8 @@ if (isset($_GET['msg'])) {
   $message = (string) $_GET['msg'];
 }
 
-$dbStorageError = iptrack_sqlite_storage_error($basePath . '/admin/data', $basePath . '/admin/data/iptrack.db');
+$sqlitePaths = iptrack_resolve_sqlite_paths(__DIR__ . '/data');
+$dbStorageError = iptrack_sqlite_storage_error($sqlitePaths['dir'], $sqlitePaths['path']);
 
 $projects = getAllProjects($pdo);
 $monitoredUrls = getMonitoredUrls($pdo);
@@ -267,6 +268,7 @@ header('Content-Type: text/html; charset=UTF-8');
       <a href="<?php echo htmlspecialchars($baseUrl); ?>/logs.php">Переглянути логи</a>
       <a href="<?php echo htmlspecialchars($baseUrl); ?>/admin/?import=1">Імпортувати з диска</a>
       <a href="<?php echo htmlspecialchars($baseUrl); ?>/admin/#monitoring">Моніторинг</a>
+      <a href="<?php echo htmlspecialchars($baseUrl); ?>/admin/db_diag.php">Діагностика БД</a>
       <a href="<?php echo htmlspecialchars($baseUrl); ?>/admin/?logout=1">Вийти</a>
     </div>
     <?php if ($message !== ''): ?>

@@ -5,3 +5,4 @@
 .DS_Store
 /admin/data/*.db
 /admin/data/telegram.local.php
+/admin/data/db.local.php

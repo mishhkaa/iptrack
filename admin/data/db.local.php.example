@@ -1,0 +1,8 @@
+<?php
+/**
+ * Скопіюй як admin/data/db.local.php (файл у .gitignore).
+ * Вкажи шлях до SQLite у папці, куди PHP точно може писати.
+ */
+return [
+  'db_path' => '/home/ВАШ_КОРИСТУВАЧ/private/iptrack.db',
+];
