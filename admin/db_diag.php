@@ -71,10 +71,23 @@ header('Content-Type: text/html; charset=UTF-8');
     pre { padding: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
     .ok { color: #86efac; }
     .fail { color: #f87171; }
+    .alert { background: rgba(248, 113, 113, 0.12); border: 1px solid rgba(248, 113, 113, 0.45); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; color: #fecaca; }
+    .alert strong { color: #fff; }
   </style>
 </head>
 <body>
   <p><a href="/admin/">← Назад до дашборду</a></p>
+  <?php
+  $dirPerms = iptrack_path_permissions($dataDir);
+  $dbPerms = iptrack_path_permissions($dbPath);
+  $ownerMismatch = $dirPerms && $dirPerms['owner'] !== $phpUser;
+  if ($ownerMismatch): ?>
+  <div class="alert">
+    <strong>Знайдено причину:</strong> PHP працює під <code><?php echo htmlspecialchars($phpUser); ?></code>,
+    але папка/база належать <code><?php echo htmlspecialchars($dirPerms['owner']); ?></code>.
+    Попередній <code>chown www-data</code> зробив ситуацію гіршою — поверни власника на <code><?php echo htmlspecialchars($phpUser); ?></code> (команда нижче).
+  </div>
+  <?php endif; ?>
   <div class="card">
     <h1>Діагностика SQLite</h1>
     <table>
@@ -88,8 +101,6 @@ header('Content-Type: text/html; charset=UTF-8');
       <tr><th>is_writable(БД)</th><td class="<?php echo is_file($dbPath) && is_writable($dbPath) ? 'ok' : (is_file($dbPath) ? 'fail' : ''); ?>"><?php echo is_file($dbPath) ? (is_writable($dbPath) ? 'так' : 'ні') : '—'; ?></td></tr>
       <tr><th>Тест INSERT у SQLite</th><td class="<?php echo $insertTest === 'ok' ? 'ok' : 'fail'; ?>"><?php echo htmlspecialchars($insertTest); ?></td></tr>
       <?php
-      $dirPerms = iptrack_path_permissions($dataDir);
-      $dbPerms = iptrack_path_permissions($dbPath);
       if ($dirPerms): ?>
       <tr><th>Права папки</th><td><code><?php echo htmlspecialchars($dirPerms['owner'] . ':' . $dirPerms['group'] . ' ' . $dirPerms['mode']); ?></code></td></tr>
       <?php endif;
